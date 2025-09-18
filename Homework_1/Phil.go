@@ -1,24 +1,32 @@
-package DS_homeworkpackage
+package main
 
 import (
 	"fmt"
 	"math/rand"
+	"sync"
 	"time"
+)
+
+const (
+	// n = number of Philosophers
+	n               = 5
+	eatingGoal      = 3
+	maxThinkingTime = 3 * time.Second
+	maxEatingTime   = 1 * time.Second
 )
 
 // give: fork sends once to give permission to take
 // release: philosoph sends when releasing forks
 // philosophID : self-explanatory
 type forkRequest struct {
-	philosophId int
-	give        chan struct{}
-	release     chan struct{}
+	philosopherId int
+	give, release chan struct{}
 }
 
 // fork runs it own goRoutine
 // It works on a FIFO-order
 // Only works through channels
-func fork(id int, requests <-chan forkRequest) {
+func fork(_ int, requests <-chan forkRequest) {
 	for req := range requests {
 		// grant exclusive use
 		req.give <- struct{}{}
@@ -35,32 +43,30 @@ type Philosopher struct {
 	eatNum            int
 }
 
-func (p Philosopher) eat(done chan<- struct{}) {
-	eaten := 0
-	random := rand.New(rand.NewSource(time.Now().UnixNano() + int64(p.id)))
+func (p Philosopher) getFork(reqCh chan<- forkRequest) (give, release chan struct{}) {
+	give = make(chan struct{})
+	release = make(chan struct{})
+	req := forkRequest{philosopherId: p.id, give: give, release: release}
+	// send request: this blocks if the fork is in use
+	reqCh <- req
+	// wait until the fork gives permission
+	<-give
+	return
+}
 
-	// helper to request/release a single fork via its request channel
-	getFork := func(reqCh chan<- forkRequest) (give chan struct{}, release chan struct{}) {
-		give = make(chan struct{})
-		release = make(chan struct{})
-		req := forkRequest{philosophId: p.id, give: give, release: release}
+func (p Philosopher) eat(eaten int, wg *sync.WaitGroup) {
 
-		// send request: this blocks if the fork is in use
-		reqCh <- req
-		// wait until the fork gives permission
-		<-give
-		return give, release
-	}
-
+	r := rand.New(rand.NewSource(time.Now().UnixNano()))
+	defer wg.Done()
 	for eaten < p.eatNum {
 		// thinking
 		fmt.Printf("Philosopher %d: thinking\n", p.id)
-		time.Sleep(time.Duration(150+random.Intn(300)) * time.Millisecond)
+		time.Sleep(time.Duration(r.Int63n(int64(maxThinkingTime))))
 
-		//avoid deadlock
+		//how this avoids deadlock
 		//odd philosophers take left, then right.
 		//even philosophers take right, then left.
-		//there is not circular wait.
+		//there is never circular wait then.
 
 		var first, second chan<- forkRequest
 		if p.id%2 == 1 {
@@ -68,13 +74,14 @@ func (p Philosopher) eat(done chan<- struct{}) {
 		} else {
 			first, second = p.rightForkRequests, p.leftForkRequests
 		}
-		//take fork in order through channels
-		_, rel1 := getFork(first)
-		_, rel2 := getFork(second)
 
-		//eating
+		//take fork in order through channels
+		_, rel1 := p.getFork(first)
+		_, rel2 := p.getFork(second)
+
+		// eating
 		fmt.Printf("Philosopher %d: eating (meal %d)\n", p.id, eaten+1)
-		time.Sleep(time.Duration(150+random.Intn(300)) * time.Millisecond)
+		time.Sleep(time.Duration(r.Int63n(int64(maxEatingTime))))
 
 		//release forks
 		rel2 <- struct{}{}
@@ -82,18 +89,15 @@ func (p Philosopher) eat(done chan<- struct{}) {
 
 		eaten++
 		//wait a little bit before trying to eat again
-		time.Sleep(time.Duration(random.Intn(200)) * time.Millisecond)
+		time.Sleep(time.Duration(r.Intn(200)) * time.Millisecond)
 	}
+
 	fmt.Printf("Philosopher %d: finished eating (ate %d times)\n", p.id, eaten)
-	done <- struct{}{}
 }
 
 func main() {
-	rand.Seed(time.Now().UnixNano())
-
-	const n = 5
-	const eatingGoal = 3
-
+	var wg sync.WaitGroup
+	wg.Add(n)
 	// Create fork request channels and goRoutines
 	forkCh := make([]chan forkRequest, n)
 	for i := 0; i < n; i++ {
@@ -101,8 +105,7 @@ func main() {
 		go fork(i, forkCh[i])
 	}
 
-	// Create philosophers with their own goRotines
-	done := make(chan struct{}, n)
+	// goroutines for Philosophers
 	for i := 0; i < n; i++ {
 		p := Philosopher{
 			id:                i,
@@ -110,12 +113,9 @@ func main() {
 			rightForkRequests: forkCh[(i+1)%n],
 			eatNum:            eatingGoal,
 		}
-		go p.eat(done)
+		go p.eat(0, &wg)
 	}
+	wg.Wait()
 
-	//Wait for all to have eating 3 times.
-	for i := 0; i < n; i++ {
-		<-done
-	}
 	fmt.Println("All Philosophers are done! and have eaten 3 times :D")
 }
