@@ -12,6 +12,7 @@ Packages used: Standard library imports fmt (printing) and time (simple timing).
 
 Data structure: A simplified TCP packet as a Go struct:
 ```go
+package main
 type Packet struct {
 seq     int
 ack     int
