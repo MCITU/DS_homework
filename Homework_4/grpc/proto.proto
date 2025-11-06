@@ -1,0 +1,81 @@
+syntax = "proto3";
+option go_package = "ITUDataBase/grpc/proto";
+
+service ITUDatabase {
+  rpc enterCritical(accessRequest) returns (accessResponse);
+
+  rpc leaveCritical(leaveRequest) returns (leaveResponse);
+
+}
+message accessRequest {
+  string node = 1;
+  int64 queue_id = 3;
+}
+
+message leaveRequest {
+  string node = 2;
+}
+
+message accessResponse {
+  string node = 1;
+}
+
+message leaveResponse {
+  string node = 1;
+  bool success = 2;
+}
+
+// Type of broadcast message
+enum messageType {
+  JOIN = 0;
+  REQUEST = 1;
+  LEAVE = 2;
+}
+
+//   // Join the chat and receive broadcast messages via server-side streaming
+//   rpc joinChat(joinRequest) returns (stream broadcastMessage);
+//
+//   // Publish a message to the chat rpc JoinC
+//   rpc publishMessage(chatMessage) returns (publishResponse);
+//
+//   // Leave the chat
+//   rpc leaveChat(leaveRequest) returns (leaveResponse);
+// }
+//
+//// Request message when a client joins
+//message joinRequest {
+//  string participant_name = 1;
+//}
+//
+//// Message for publishing chat content
+//message chatMessage {
+//  string participant_name = 1;
+//  string content = 2;
+//}
+//
+//// Response after publishing a message
+//message publishResponse {
+//  bool success = 1;
+//  int64 lamport_timestamp = 2;
+//}
+//
+//// Request message when a client leaves
+//message leaveRequest {
+//  string participant_name = 1;
+//}
+//
+//// Response after leaving
+//message leaveResponse {
+//  bool success = 1;
+//}
+//
+//// Broadcast message sent to all clients
+//message broadcastMessage {
+//  string content = 1;
+//  int64 lamport_timestamp = 2;
+//  messageType type = 3;
+//}
+//
+
+
+
