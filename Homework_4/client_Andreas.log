@@ -1,0 +1,11 @@
+2025/10/29 16:47:08 [Client Andreas] Connecting to server %!s(MISSING)
+2025/10/29 16:47:08 [Client: Andreas] Recieved: Participant Andreas joined Chit Chat at Lamport time 3 (Lamport: 3)
+2025/10/29 16:47:27 [Client Andreas] Published message: %!s(int64=4)
+2025/10/29 16:47:27 [Client: Andreas] Recieved: Andreas: hey hey (Lamport: 4)
+2025/10/29 16:49:15 [Client: Andreas] Recieved: Participant Lukas joined Chit Chat at Lamport time 5 (Lamport: 5)
+2025/10/29 16:50:07 [Client: Andreas] Recieved: Lukas: smell you later (Lamport: 6)
+2025/10/29 16:50:17 [Client: Andreas] Recieved: Lukas: leave (Lamport: 7)
+2025/10/29 16:50:22 [Client: Andreas] Recieved: Participant Lukas left Chit Chat at Lamport time 8 (Lamport: 8)
+2025/10/29 16:50:39 [Client Andreas] Leaving
+2025/10/29 16:50:39 [Client: Andreas] Recieved: Participant Andreas left Chit Chat at Lamport time 9 (Lamport: 9)
+2025/10/29 16:50:39 [Client Andreas] Disconnected

@@ -1,0 +1,26 @@
+2025/10/29 16:43:26 [Server] Starting up
+2025/10/29 16:43:26 [Server] Listening on port 5000
+2025/10/29 16:45:43 [Server] Client mads joined
+2025/10/29 16:45:43 [Server] Broadcasting: Participant mads joined Chit Chat at Lamport time 1 (Lamport: 1)
+2025/10/29 16:46:12 [Server] Message from mads (Lamport: 2)
+2025/10/29 16:46:12 [Server] Broadcasting: mads: Hey TA happy reading! (Lamport: 2)
+2025/10/29 16:47:08 [Server] Client Andreas joined
+2025/10/29 16:47:08 [Server] Broadcasting: Participant Andreas joined Chit Chat at Lamport time 3 (Lamport: 3)
+2025/10/29 16:47:27 [Server] Message from Andreas (Lamport: 4)
+2025/10/29 16:47:27 [Server] Broadcasting: Andreas: hey hey (Lamport: 4)
+2025/10/29 16:49:15 [Server] Client Lukas joined
+2025/10/29 16:49:15 [Server] Broadcasting: Participant Lukas joined Chit Chat at Lamport time 5 (Lamport: 5)
+2025/10/29 16:50:07 [Server] Message from Lukas (Lamport: 6)
+2025/10/29 16:50:07 [Server] Broadcasting: Lukas: smell you later (Lamport: 6)
+2025/10/29 16:50:17 [Server] Message from Lukas (Lamport: 7)
+2025/10/29 16:50:17 [Server] Broadcasting: Lukas: leave (Lamport: 7)
+2025/10/29 16:50:22 [Server] Client Lukas left (Lamport: 8)
+2025/10/29 16:50:22 [Server] Broadcasting: Participant Lukas left Chit Chat at Lamport time 8 (Lamport: 8)
+2025/10/29 16:50:39 [Server] Client Andreas left (Lamport: 9)
+2025/10/29 16:50:39 [Server] Broadcasting: Participant Andreas left Chit Chat at Lamport time 9 (Lamport: 9)
+2025/10/29 16:50:45 [Server] Client mads left (Lamport: 10)
+2025/10/29 16:50:45 [Server] Broadcasting: Participant mads left Chit Chat at Lamport time 10 (Lamport: 10)
+2025/10/29 16:51:03 [Server] Shutting down
+2025/10/29 17:18:33 [Server] Starting up
+2025/10/29 17:18:33 [Server] Listening on port 5000
+2025/10/29 17:20:07 [Server] Shutting down
