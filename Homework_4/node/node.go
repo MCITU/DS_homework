@@ -7,7 +7,12 @@ package node
 
 */
 
-import "fmt"
+import (
+	proto "ITUserver/grpc"
+	"fmt"
+
+	"google.golang.org/grpc"
+)
 
 var (
 	ID int // server IP ?
@@ -16,4 +21,12 @@ var (
 func main() {
 	fmt.Println("Hello World!")
 
+}
+
+type node struct {
+	NodeNr string
+	conn   *grpc.ClientConn
+	client proto.ITUDatabaseClient
+	ctx    context.Context
+	cancel context.CancelFunc
 }

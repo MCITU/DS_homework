@@ -2,35 +2,42 @@ syntax = "proto3";
 option go_package = "ITUDataBase/grpc/proto";
 
 service ITUDatabase {
-  rpc enterCritical(accessRequest) returns (accessResponse);
+  //Request to enter at time T
+  rpc sendRequest(accessRequest) returns (confirm);
 
-  rpc leaveCritical(leaveRequest) returns (leaveResponse);
+  //Granted permission at time T
+  rpc sendReply(accessReply) returns (confirm);
 
+  //Exited at time T
+  rpc sendLeave(leaveNotice) returns (confirm);
 }
+
 message accessRequest {
   string node = 1;
+  uint64 lamport_timestamp = 2;
   int64 queue_id = 3;
 }
 
-message leaveRequest {
-  string node = 2;
-}
-
-message accessResponse {
+message accessReply {
   string node = 1;
+  uint64 lamport_timestamp = 2;
+  string to_node = 3;
+  bool granted = 4;
 }
-
-message leaveResponse {
+message leaveNotice {
   string node = 1;
-  bool success = 2;
+  uint64 lamport_timestamp = 2;
 }
 
-// Type of broadcast message
-enum messageType {
-  JOIN = 0;
-  REQUEST = 1;
-  LEAVE = 2;
-}
+message confirm{}
+
+
+//// Type of broadcast message
+//enum messageType {
+//  JOIN = 0;
+//  REQUEST = 1;
+//  LEAVE = 2;
+//}
 
 //   // Join the chat and receive broadcast messages via server-side streaming
 //   rpc joinChat(joinRequest) returns (stream broadcastMessage);
