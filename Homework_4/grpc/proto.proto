@@ -1,5 +1,5 @@
 syntax = "proto3";
-option go_package = "ITUDataBase/grpc/proto";
+option go_package = "grpc/proto";
 
 service ITUDatabase {
   //Request to enter at time T
@@ -13,19 +13,20 @@ service ITUDatabase {
 }
 
 message accessRequest {
-  string node = 1;
+  string node_id = 1;
   uint64 lamport_timestamp = 2;
   int64 queue_id = 3;
 }
 
 message accessReply {
-  string node = 1;
+  string node_id = 1;
   uint64 lamport_timestamp = 2;
   string to_node = 3;
   bool granted = 4;
 }
+
 message leaveNotice {
-  string node = 1;
+  string node_id = 1;
   uint64 lamport_timestamp = 2;
 }
 
