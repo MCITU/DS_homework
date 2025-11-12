@@ -2,12 +2,13 @@
 // versions:
 // - protoc-gen-go-grpc v1.5.1
 // - protoc             v6.32.1
-// source: proto.proto
+// source: grpc/proto.proto
 
-package proto
+package grpc
 
 import (
 	context "context"
+
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
@@ -19,21 +20,21 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	ITUDatabase_JoinChat_FullMethodName       = "/ITUDatabase/joinChat"
-	ITUDatabase_PublishMessage_FullMethodName = "/ITUDatabase/publishMessage"
-	ITUDatabase_LeaveChat_FullMethodName      = "/ITUDatabase/leaveChat"
+	ITUDatabase_SendRequest_FullMethodName = "/ITUDatabase/sendRequest"
+	ITUDatabase_SendReply_FullMethodName   = "/ITUDatabase/sendReply"
+	ITUDatabase_SendLeave_FullMethodName   = "/ITUDatabase/sendLeave"
 )
 
 // ITUDatabaseClient is the client API for ITUDatabase service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type ITUDatabaseClient interface {
-	// Join the chat and receive broadcast messages via server-side streaming
-	JoinChat(ctx context.Context, in *JoinRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[BroadcastMessage], error)
-	// Publish a message to the chat rpc JoinC
-	PublishMessage(ctx context.Context, in *ChatMessage, opts ...grpc.CallOption) (*PublishResponse, error)
-	// Leave the chat
-	LeaveChat(ctx context.Context, in *LeaveRequest, opts ...grpc.CallOption) (*LeaveResponse, error)
+	// Request to enter at time T
+	SendRequest(ctx context.Context, in *AccessRequest, opts ...grpc.CallOption) (*Confirm, error)
+	// Granted permission at time T
+	SendReply(ctx context.Context, in *AccessReply, opts ...grpc.CallOption) (*Confirm, error)
+	// Exited at time T
+	SendLeave(ctx context.Context, in *LeaveNotice, opts ...grpc.CallOption) (*Confirm, error)
 }
 
 type iTUDatabaseClient struct {
@@ -44,39 +45,30 @@ func NewITUDatabaseClient(cc grpc.ClientConnInterface) ITUDatabaseClient {
 	return &iTUDatabaseClient{cc}
 }
 
-func (c *iTUDatabaseClient) JoinChat(ctx context.Context, in *JoinRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[BroadcastMessage], error) {
+func (c *iTUDatabaseClient) SendRequest(ctx context.Context, in *AccessRequest, opts ...grpc.CallOption) (*Confirm, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	stream, err := c.cc.NewStream(ctx, &ITUDatabase_ServiceDesc.Streams[0], ITUDatabase_JoinChat_FullMethodName, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	x := &grpc.GenericClientStream[JoinRequest, BroadcastMessage]{ClientStream: stream}
-	if err := x.ClientStream.SendMsg(in); err != nil {
-		return nil, err
-	}
-	if err := x.ClientStream.CloseSend(); err != nil {
-		return nil, err
-	}
-	return x, nil
-}
-
-// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type ITUDatabase_JoinChatClient = grpc.ServerStreamingClient[BroadcastMessage]
-
-func (c *iTUDatabaseClient) PublishMessage(ctx context.Context, in *ChatMessage, opts ...grpc.CallOption) (*PublishResponse, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(PublishResponse)
-	err := c.cc.Invoke(ctx, ITUDatabase_PublishMessage_FullMethodName, in, out, cOpts...)
+	out := new(Confirm)
+	err := c.cc.Invoke(ctx, ITUDatabase_SendRequest_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *iTUDatabaseClient) LeaveChat(ctx context.Context, in *LeaveRequest, opts ...grpc.CallOption) (*LeaveResponse, error) {
+func (c *iTUDatabaseClient) SendReply(ctx context.Context, in *AccessReply, opts ...grpc.CallOption) (*Confirm, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(LeaveResponse)
-	err := c.cc.Invoke(ctx, ITUDatabase_LeaveChat_FullMethodName, in, out, cOpts...)
+	out := new(Confirm)
+	err := c.cc.Invoke(ctx, ITUDatabase_SendReply_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *iTUDatabaseClient) SendLeave(ctx context.Context, in *LeaveNotice, opts ...grpc.CallOption) (*Confirm, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(Confirm)
+	err := c.cc.Invoke(ctx, ITUDatabase_SendLeave_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -87,12 +79,12 @@ func (c *iTUDatabaseClient) LeaveChat(ctx context.Context, in *LeaveRequest, opt
 // All implementations must embed UnimplementedITUDatabaseServer
 // for forward compatibility.
 type ITUDatabaseServer interface {
-	// Join the chat and receive broadcast messages via server-side streaming
-	JoinChat(*JoinRequest, grpc.ServerStreamingServer[BroadcastMessage]) error
-	// Publish a message to the chat rpc JoinC
-	PublishMessage(context.Context, *ChatMessage) (*PublishResponse, error)
-	// Leave the chat
-	LeaveChat(context.Context, *LeaveRequest) (*LeaveResponse, error)
+	// Request to enter at time T
+	SendRequest(context.Context, *AccessRequest) (*Confirm, error)
+	// Granted permission at time T
+	SendReply(context.Context, *AccessReply) (*Confirm, error)
+	// Exited at time T
+	SendLeave(context.Context, *LeaveNotice) (*Confirm, error)
 	mustEmbedUnimplementedITUDatabaseServer()
 }
 
@@ -103,14 +95,14 @@ type ITUDatabaseServer interface {
 // pointer dereference when methods are called.
 type UnimplementedITUDatabaseServer struct{}
 
-func (UnimplementedITUDatabaseServer) JoinChat(*JoinRequest, grpc.ServerStreamingServer[BroadcastMessage]) error {
-	return status.Errorf(codes.Unimplemented, "method JoinChat not implemented")
+func (UnimplementedITUDatabaseServer) SendRequest(context.Context, *AccessRequest) (*Confirm, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SendRequest not implemented")
 }
-func (UnimplementedITUDatabaseServer) PublishMessage(context.Context, *ChatMessage) (*PublishResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method PublishMessage not implemented")
+func (UnimplementedITUDatabaseServer) SendReply(context.Context, *AccessReply) (*Confirm, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SendReply not implemented")
 }
-func (UnimplementedITUDatabaseServer) LeaveChat(context.Context, *LeaveRequest) (*LeaveResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method LeaveChat not implemented")
+func (UnimplementedITUDatabaseServer) SendLeave(context.Context, *LeaveNotice) (*Confirm, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SendLeave not implemented")
 }
 func (UnimplementedITUDatabaseServer) mustEmbedUnimplementedITUDatabaseServer() {}
 func (UnimplementedITUDatabaseServer) testEmbeddedByValue()                     {}
@@ -133,49 +125,56 @@ func RegisterITUDatabaseServer(s grpc.ServiceRegistrar, srv ITUDatabaseServer) {
 	s.RegisterService(&ITUDatabase_ServiceDesc, srv)
 }
 
-func _ITUDatabase_JoinChat_Handler(srv interface{}, stream grpc.ServerStream) error {
-	m := new(JoinRequest)
-	if err := stream.RecvMsg(m); err != nil {
-		return err
-	}
-	return srv.(ITUDatabaseServer).JoinChat(m, &grpc.GenericServerStream[JoinRequest, BroadcastMessage]{ServerStream: stream})
-}
-
-// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type ITUDatabase_JoinChatServer = grpc.ServerStreamingServer[BroadcastMessage]
-
-func _ITUDatabase_PublishMessage_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ChatMessage)
+func _ITUDatabase_SendRequest_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AccessRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(ITUDatabaseServer).PublishMessage(ctx, in)
+		return srv.(ITUDatabaseServer).SendRequest(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: ITUDatabase_PublishMessage_FullMethodName,
+		FullMethod: ITUDatabase_SendRequest_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ITUDatabaseServer).PublishMessage(ctx, req.(*ChatMessage))
+		return srv.(ITUDatabaseServer).SendRequest(ctx, req.(*AccessRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _ITUDatabase_LeaveChat_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(LeaveRequest)
+func _ITUDatabase_SendReply_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AccessReply)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(ITUDatabaseServer).LeaveChat(ctx, in)
+		return srv.(ITUDatabaseServer).SendReply(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: ITUDatabase_LeaveChat_FullMethodName,
+		FullMethod: ITUDatabase_SendReply_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ITUDatabaseServer).LeaveChat(ctx, req.(*LeaveRequest))
+		return srv.(ITUDatabaseServer).SendReply(ctx, req.(*AccessReply))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ITUDatabase_SendLeave_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(LeaveNotice)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ITUDatabaseServer).SendLeave(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ITUDatabase_SendLeave_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ITUDatabaseServer).SendLeave(ctx, req.(*LeaveNotice))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -188,20 +187,18 @@ var ITUDatabase_ServiceDesc = grpc.ServiceDesc{
 	HandlerType: (*ITUDatabaseServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "publishMessage",
-			Handler:    _ITUDatabase_PublishMessage_Handler,
+			MethodName: "sendRequest",
+			Handler:    _ITUDatabase_SendRequest_Handler,
 		},
 		{
-			MethodName: "leaveChat",
-			Handler:    _ITUDatabase_LeaveChat_Handler,
+			MethodName: "sendReply",
+			Handler:    _ITUDatabase_SendReply_Handler,
 		},
-	},
-	Streams: []grpc.StreamDesc{
 		{
-			StreamName:    "joinChat",
-			Handler:       _ITUDatabase_JoinChat_Handler,
-			ServerStreams: true,
+			MethodName: "sendLeave",
+			Handler:    _ITUDatabase_SendLeave_Handler,
 		},
 	},
-	Metadata: "proto.proto",
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "grpc/proto.proto",
 }
