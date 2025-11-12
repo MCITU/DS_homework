@@ -1,11 +1,6 @@
-# Chit Chat - Distributed Chat Service
+# Ricart-Agrawala
 
-A distributed chat service using Go and gRPC with Lamport logical timestamps.
-
-## Architecture
-- **Client-server architecture**: One server, multiple clients
-- **Server-side streaming**: Server pushes broadcast messages to clients
-- **Lamport timestamps**: Logical clock for event ordering
+using Go, gRPC and the Ricart-Agrawala algorithm
 
 ## Prerequisites
 
@@ -15,44 +10,39 @@ A distributed chat service using Go and gRPC with Lamport logical timestamps.
 
 ## Usage
 
-**1. Start the server:**
+**1. setup nodes:**
 ```bash
-go run server/server.go
+go run main.go Node1 5001 Node2 localhost:5002 Node3 localhost:5003
+go run main.go Node2 5002 Node1 localhost:5001 Node3 localhost:5003
+go run main.go Node3 5003 Node1 localhost:5001 Node2 localhost:5002
 ```
+this creates three nodes that will start communicating with eachother
 
-**2. Start clients (in separate terminals):**
+**2. The nodes will run the commands by them self:**
 ```bash
-go run client/client.go Alice
-go run client/client.go Bob
-go run client/client.go Charlie
+    request
+    reply
+    leave
 ```
-
-**3. Send messages:**
-Type a message and press Enter. All clients will receive it with a Lamport timestamp.
-
-**4. Leave:**
-Type `/leave` to disconnect.
 
 ## Example
 
-**Server log:**
+**client_Node log:**
 ```
-[Server] Starting up
-[Server] Listening on port 5000
-[Server] Client Alice joined
-[Server] Broadcasting: Participant Alice joined... (Lamport: 1)
+2025/11/12 23:05:15 [Node3] Connected to peer localhost:5001
+2025/11/12 23:05:15 [Node3] Connected to peer localhost:5002
+2025/11/12 23:05:25 [Node3] Event handler started
+2025/11/12 23:05:25 [Node3] Received REQUEST from Node1 (T=1)
+2025/11/12 23:05:25 [Node3] Sent reply to Node1
+2025/11/12 23:05:25 [Node3] Received REQUEST from Node2 (T=4)
+2025/11/12 23:05:25 [Node3] Sent reply to Node2
+2025/11/12 23:05:27 [Node3] Sent REQUEST to all peers (T=7)
+2025/11/12 23:05:30 [Node3] Received LEAVE from Node2 (T=10)
+2025/11/12 23:05:30 [Node3] Received REPLY from Node2 (T=11)
+2025/11/12 23:05:30 [Node3] Received LEAVE from Node1 (T=12)
+2025/11/12 23:05:30 [Node3] Received REPLY from Node1 (T=13)
+2025/11/12 23:05:30 [Node3] Is in Critical Section
+2025/11/12 23:05:30 [Node3] Doing work in cs...
+2025/11/12 23:05:35 [Node3] Released CS and sent deferred replies
 ```
 
-**Client output:**
-```
-Connected as Alice (type '/leave' to exit)
-[Lamport: 1] Participant Alice joined Chit Chat at Lamport time 1
-[Lamport: 2] Participant Bob joined Chit Chat at Lamport time 2
-Hello!
-[Lamport: 3] Alice: Hello!
-```
-
-## Logs
-
-- `server.log` - Server events
-- `client_<name>.log` - Client events

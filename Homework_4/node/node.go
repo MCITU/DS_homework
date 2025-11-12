@@ -41,7 +41,7 @@ type node struct {
 	Ctx              context.Context
 	Cancel           context.CancelFunc
 	Srv              *grpc.Server
-	Peers            map[string]pb.ITUDatabaseClient
+	Peers            map[string]pb.ITUDatabaseClient // key: node name
 	Events           chan event
 	ReplyCount       int
 	DeferredReplies  []pb.AccessRequest
@@ -67,7 +67,7 @@ func CreateNode(name string, port string) (*node, error) {
 		Events:          make(chan event, 100),
 		LamportClock:    0,
 		InCriticalSec:   false,
-		DeferredReplies: make([]pb.AccessRequest, 2),
+		DeferredReplies: make([]pb.AccessRequest, 0),
 	}
 	return n, nil
 }
@@ -85,9 +85,10 @@ func (n *node) updateClock(received int64) {
 	}
 }
 
-func (n *node) AddPeer(address string) error {
-	if !strings.Contains(address, ":") {
-		address = "localhost:" + address
+func (n *node) AddPeer(id, port string) error {
+	address := port
+	if !strings.Contains(port, ":") {
+		address = "localhost:" + port
 	}
 
 	conn, err := grpc.Dial(address, grpc.WithTransportCredentials(insecure.NewCredentials()))
@@ -95,21 +96,30 @@ func (n *node) AddPeer(address string) error {
 		return fmt.Errorf("failed to connect to peer %s: %v", address, err)
 	}
 	client := pb.NewITUDatabaseClient(conn)
-	n.Peers[address] = client
+	n.Peers[id] = client
 	log.Printf("[%s] Connected to peer %s", n.Name, address)
 	return nil
 }
 
 // functions as Ricart-agrawala algo
 func (n *node) handleEvents() {
+	if n.Events == nil {
+		log.Fatalf("[%s] FATAL: Events channel is nil", n.Name)
+	}
+	if n.Peers == nil {
+		log.Fatalf("[%s] FATAL: Peers map is nil", n.Name)
+	}
+	log.Printf("[%s] Event handler started", n.Name)
+
 	for e := range n.Events {
 		switch e.kind {
 		case "request":
 			req := e.data.(*pb.AccessRequest)
 			n.updateClock(int64(req.LamportTimestamp))
 			log.Printf("[%s] Received REQUEST from %s (T=%d)\n", n.Name, req.NodeId, req.LamportTimestamp)
-			if n.InCriticalSec || (n.RequestTimestamp != 0 &&
-				(req.LamportTimestamp < uint64(n.RequestTimestamp))) {
+			shouldDefer := n.InCriticalSec || (n.RequestTimestamp != 0 && (req.LamportTimestamp < uint64(n.RequestTimestamp) ||
+				(req.LamportTimestamp == uint64(n.RequestTimestamp) && req.NodeId < n.Name)))
+			if shouldDefer {
 				n.DeferredReplies = append(n.DeferredReplies, *req)
 				log.Printf("[%s] DeferredReplies to %s", n.Name, req.NodeId)
 			} else {
@@ -141,16 +151,15 @@ func (n *node) handleEvents() {
 			lv := e.data.(*pb.LeaveNotice)
 			n.updateClock(int64(lv.LamportTimestamp))
 			log.Printf("[%s] Received LEAVE from %s (T=%d)\n", n.Name, lv.NodeId, lv.LamportTimestamp)
-			n.ReleaseAccess()
-			n.ReplyCount = 0
-			rep := &pb.AccessReply{
-				NodeId:           n.Name,
-				LamportTimestamp: uint64(n.incrementClock()),
-			}
-			_, err := n.Peers[rep.NodeId].SendReply(n.Ctx, rep)
-			if err != nil {
-				log.Printf("[%s] Failed to send reply to %s: %v", n.Name, lv.NodeId, err)
-			}
+			//n.ReplyCount = 0
+			//rep := &pb.AccessReply{
+			//	NodeId:           n.Name,
+			//	LamportTimestamp: uint64(n.incrementClock()),
+			//}
+			//_, err := n.Peers[rep.NodeId].SendReply(n.Ctx, rep)
+			//if err != nil {
+			//	log.Printf("[%s] Failed to send reply to %s: %v", n.Name, lv.NodeId, err)
+			//}
 		}
 	}
 }
@@ -218,7 +227,7 @@ func (n *node) Start() error {
 
 	n.Srv = srv
 
-	time.Sleep(500 * time.Millisecond)
+	time.Sleep(30 * time.Second)
 
 	go n.handleEvents()
 	return nil

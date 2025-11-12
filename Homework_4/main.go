@@ -10,24 +10,22 @@ import (
 )
 
 func main() {
-	if len(os.Args) < 3 {
-		fmt.Println("Usage: go run main.go <NodeName> <Port> ")
-		os.Exit(1)
-	}
-
+	
 	name := os.Args[1]
 	port := os.Args[2]
-	peer1 := os.Args[3]
-	peer2 := os.Args[4]
+	peer1Name := os.Args[3]
+	peer1Port := os.Args[4]
+	peer2Name := os.Args[5]
+	peer2Port := os.Args[6]
 
 	n, err := node.CreateNode(name, port)
 	if err != nil {
 		log.Fatalf("Failed to create node: %v", err)
 	}
 
-	n.AddPeer(peer1)
-	
-	n.AddPeer(peer2)
+	n.AddPeer(peer1Name, peer1Port)
+
+	n.AddPeer(peer2Name, peer2Port)
 
 	if err := n.Start(); err != nil {
 		log.Fatalf("Failed to start node: %v", err)
