@@ -18,21 +18,6 @@ type event struct {
 	data interface{}
 }
 
-/*
-type request struct {
-	time int64
-	name string
-}
-
-func (n *node) createReq() (*request, error) {
-	r := &request{
-		time: n.LamportClock,
-		name: n.Name,
-	}
-	return r, nil
-}
-*/
-
 type node struct {
 	Name             string
 	Port             string
@@ -151,15 +136,6 @@ func (n *node) handleEvents() {
 			lv := e.data.(*pb.LeaveNotice)
 			n.updateClock(int64(lv.LamportTimestamp))
 			log.Printf("[%s] Received LEAVE from %s (T=%d)\n", n.Name, lv.NodeId, lv.LamportTimestamp)
-			//n.ReplyCount = 0
-			//rep := &pb.AccessReply{
-			//	NodeId:           n.Name,
-			//	LamportTimestamp: uint64(n.incrementClock()),
-			//}
-			//_, err := n.Peers[rep.NodeId].SendReply(n.Ctx, rep)
-			//if err != nil {
-			//	log.Printf("[%s] Failed to send reply to %s: %v", n.Name, lv.NodeId, err)
-			//}
 		}
 	}
 }
