@@ -1,82 +1,225 @@
 package node
 
-/*
-	Have an IP which is the channel that it retrieve data and listens on
-	node struct that has the parameters of both a server and client
-	request access to the critical section
-
-*/
-
 import (
-	proto "ITUserver/grpc"
+	pb "ITUserver/grpc"
 	"context"
 	"fmt"
 	"log"
 	"os"
+	"strings"
+	"time"
 
-	apiv2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
 
-var (
-	ID int // server IP ?
-)
-
-func main() {
-	fmt.Println("Hello World!")
-
+type event struct {
+	kind string // "request", "reply", "leave"
+	data interface{}
 }
+
+/*
+type request struct {
+	time int64
+	name string
+}
+
+func (n *node) createReq() (*request, error) {
+	r := &request{
+		time: n.LamportClock,
+		name: n.Name,
+	}
+	return r, nil
+}
+*/
 
 type node struct {
-	name   string
-	conn   *grpc.ClientConn
-	client proto.ITUDatabaseClient
-	ctx    context.Context
-	cancel context.CancelFunc
-	srv    *grpc.Server
-	peers  map[string]proto.ITUDatabaseClient
+	Name             string
+	Port             string
+	Conn             *grpc.ClientConn
+	Client           pb.ITUDatabaseClient
+	Ctx              context.Context
+	Cancel           context.CancelFunc
+	Srv              *grpc.Server
+	Peers            map[string]pb.ITUDatabaseClient
+	Events           chan event
+	ReplyCount       int
+	DeferredReplies  []pb.AccessRequest
+	LamportClock     int64
+	RequestTimestamp int64
+	InCriticalSec    bool
 }
 
-type ituServer struct {
-	proto.UnimplementedITUDatabaseServer
-	n *node
-}
-
-func (s *ituServer) SendRequest(ctx context.Context, r *proto.AccessRequest) (*proto.Confirm, error) {
-	return &proto.Confirm{}, nil
-}
-
-func (s *ituServer) SendReply(ctx context.Context, r *proto.AccessReply) (*proto.Confirm, error) {
-	return &proto.Confirm{}, nil
-}
-
-func (s *ituServer) SendLeave(ctx context.Context, r *proto.AccessRequest) (*proto.Confirm, error) {
-	return &proto.Confirm{}, nil
-}
-
-func createNode(name string, connection string) (*node, error) {
+func CreateNode(name string, port string) (*node, error) {
 	logFile, err := os.OpenFile(fmt.Sprintf("client_%s.log", name), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0666)
 	if err != nil {
 		return nil, err
 	}
 	log.SetOutput(logFile)
 
-	conn, err := grpc.Dial("localhost"+connection, grpc.WithTransportCredentials(insecure.NewCredentials()))
-	if err != nil {
-		return nil, err
-	}
-
 	ctx, cancel := context.WithCancel(context.Background())
-	return &node{
-		name:   name,
-		conn:   conn,
-		client: proto.NewITUDatabaseClient(conn),
-		ctx:    ctx,
-		cancel: cancel,
-	}, nil
+	n := &node{
+		Name:            name,
+		Port:            port,
+		Ctx:             ctx,
+		Cancel:          cancel,
+		Peers:           make(map[string]pb.ITUDatabaseClient),
+		Events:          make(chan event, 100),
+		LamportClock:    0,
+		InCriticalSec:   false,
+		DeferredReplies: make([]pb.AccessRequest, 2),
+	}
+	return n, nil
 }
 
-func newServer(serverId int64) {
+func (n *node) incrementClock() int64 {
+	n.LamportClock++
+	return n.LamportClock
+}
 
+func (n *node) updateClock(received int64) {
+	if received >= n.LamportClock {
+		n.LamportClock = received + 1
+	} else {
+		n.incrementClock()
+	}
+}
+
+func (n *node) AddPeer(address string) error {
+	if !strings.Contains(address, ":") {
+		address = "localhost:" + address
+	}
+
+	conn, err := grpc.Dial(address, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		return fmt.Errorf("failed to connect to peer %s: %v", address, err)
+	}
+	client := pb.NewITUDatabaseClient(conn)
+	n.Peers[address] = client
+	log.Printf("[%s] Connected to peer %s", n.Name, address)
+	return nil
+}
+
+// functions as Ricart-agrawala algo
+func (n *node) handleEvents() {
+	for e := range n.Events {
+		switch e.kind {
+		case "request":
+			req := e.data.(*pb.AccessRequest)
+			n.updateClock(int64(req.LamportTimestamp))
+			log.Printf("[%s] Received REQUEST from %s (T=%d)\n", n.Name, req.NodeId, req.LamportTimestamp)
+			if n.InCriticalSec || (n.RequestTimestamp != 0 &&
+				(req.LamportTimestamp < uint64(n.RequestTimestamp))) {
+				n.DeferredReplies = append(n.DeferredReplies, *req)
+				log.Printf("[%s] DeferredReplies to %s", n.Name, req.NodeId)
+			} else {
+				rep := &pb.AccessReply{
+					NodeId:           n.Name,
+					LamportTimestamp: uint64(n.incrementClock()),
+				}
+				_, err := n.Peers[req.NodeId].SendReply(n.Ctx, rep)
+				if err != nil {
+					log.Printf("[%s] Failed to send reply to %s: %v", n.Name, req.NodeId, err)
+				} else {
+					log.Printf("[%s] Sent reply to %s", n.Name, req.NodeId)
+				}
+
+			}
+
+		case "reply":
+			rep := e.data.(*pb.AccessReply)
+			n.updateClock(int64(rep.LamportTimestamp))
+			n.ReplyCount++
+			log.Printf("[%s] Received REPLY from %s (T=%d)\n", n.Name, rep.NodeId, rep.LamportTimestamp)
+
+			if n.ReplyCount == len(n.Peers) {
+				n.InCriticalSec = true
+				log.Printf("[%s] Is in Critical Section", n.Name)
+			}
+
+		case "leave":
+			lv := e.data.(*pb.LeaveNotice)
+			n.updateClock(int64(lv.LamportTimestamp))
+			log.Printf("[%s] Received LEAVE from %s (T=%d)\n", n.Name, lv.NodeId, lv.LamportTimestamp)
+			n.ReleaseAccess()
+			n.ReplyCount = 0
+			rep := &pb.AccessReply{
+				NodeId:           n.Name,
+				LamportTimestamp: uint64(n.incrementClock()),
+			}
+			_, err := n.Peers[rep.NodeId].SendReply(n.Ctx, rep)
+			if err != nil {
+				log.Printf("[%s] Failed to send reply to %s: %v", n.Name, lv.NodeId, err)
+			}
+		}
+	}
+}
+
+func (n *node) RequestAccess() error {
+	n.RequestTimestamp = n.incrementClock()
+	n.ReplyCount = 0
+	n.InCriticalSec = false
+
+	req := &pb.AccessRequest{
+		NodeId:           n.Name,
+		LamportTimestamp: uint64(n.RequestTimestamp),
+	}
+
+	for _, peer := range n.Peers {
+		_, err := peer.SendRequest(n.Ctx, req)
+		if err != nil {
+			log.Println("Failed to send request to peer:", err)
+		}
+	}
+	log.Printf("[%s] Sent REQUEST to all peers (T=%d)", n.Name, n.RequestTimestamp)
+	return nil
+
+}
+
+func (n *node) ReleaseAccess() error {
+	n.incrementClock()
+	leave := &pb.LeaveNotice{
+		NodeId:           n.Name,
+		LamportTimestamp: uint64(n.LamportClock),
+	}
+
+	for _, peer := range n.Peers {
+		_, err := peer.SendLeave(n.Ctx, leave)
+		if err != nil {
+			log.Println("Failed to send 'leave' to peer:", err)
+		}
+
+	}
+
+	for _, r := range n.DeferredReplies {
+		rep := &pb.AccessReply{
+			NodeId:           n.Name,
+			LamportTimestamp: uint64(n.incrementClock()),
+		}
+		_, err := n.Peers[r.NodeId].SendReply(n.Ctx, rep)
+		if err != nil {
+			log.Printf("[%s] Failed to send reply to peer %s: %v", n.Name, r.NodeId, err)
+		} else {
+			log.Printf("[%s] Sent deferred REPLY tp %s", n.Name, r.NodeId)
+		}
+	}
+
+	n.DeferredReplies = nil
+	n.InCriticalSec = false
+	log.Printf("[%s] Released CS and sent deferred replies", n.Name)
+	return nil
+}
+
+func (n *node) Start() error {
+	srv, err := newServer(n.Port, n)
+	if err != nil {
+		return err
+	}
+
+	n.Srv = srv
+
+	time.Sleep(500 * time.Millisecond)
+
+	go n.handleEvents()
+	return nil
 }
