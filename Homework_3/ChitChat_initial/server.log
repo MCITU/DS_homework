@@ -1,0 +1,22 @@
+2025/11/19 17:55:14 [Server] Starting up
+2025/11/19 17:55:14 [Server] Listening on port 5000
+2025/11/19 17:55:23 [Server] Client Rasmus joined
+2025/11/19 17:55:23 [Server] Broadcasting: Participant Rasmus joined Chit Chat at Lamport time 1 (Lamport: 1)
+2025/11/19 17:55:25 [Server] Client Ratn joined
+2025/11/19 17:55:25 [Server] Broadcasting: Participant Ratn joined Chit Chat at Lamport time 2 (Lamport: 2)
+2025/11/19 17:55:25 [Server] Client RallToTheG joined
+2025/11/19 17:55:25 [Server] Broadcasting: Participant RallToTheG joined Chit Chat at Lamport time 3 (Lamport: 3)
+2025/11/19 17:55:47 [Server] Message from Rasmus (Lamport: 6)
+2025/11/19 17:55:47 [Server] Broadcasting: Rasmus: Welcome back TA!! (Lamport: 6)
+2025/11/19 17:55:59 [Server] Message from Ratn (Lamport: 9)
+2025/11/19 17:55:59 [Server] Broadcasting: Ratn: This is a test (Lamport: 9)
+2025/11/19 17:56:34 [Server] Message from RallToTheG (Lamport: 12)
+2025/11/19 17:56:34 [Server] Broadcasting: RallToTheG: Lebron the goat (Lamport: 12)
+2025/11/19 17:56:45 [Server] Client Rasmus left (Lamport: 13)
+2025/11/19 17:56:45 [Server] Broadcasting: Participant Rasmus left Chit Chat at Lamport time 13 (Lamport: 13)
+2025/11/19 17:56:48 [Server] Client Ratn left (Lamport: 14)
+2025/11/19 17:56:48 [Server] Broadcasting: Participant Ratn left Chit Chat at Lamport time 14 (Lamport: 14)
+2025/11/19 17:56:56 [Server] Message from RallToTheG (Lamport: 17)
+2025/11/19 17:56:56 [Server] Broadcasting: RallToTheG: Bye!! (Lamport: 17)
+2025/11/19 17:56:59 [Server] Client RallToTheG left (Lamport: 18)
+2025/11/19 17:56:59 [Server] Broadcasting: Participant RallToTheG left Chit Chat at Lamport time 18 (Lamport: 18)

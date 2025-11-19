@@ -8,17 +8,20 @@ import (
 	"log"
 	"os"
 	"strings"
+	"sync"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
 
 type userInfo struct {
-	name   string
-	conn   *grpc.ClientConn
-	client proto.ITUDatabaseClient
-	ctx    context.Context
-	cancel context.CancelFunc
+	name         string
+	conn         *grpc.ClientConn
+	client       proto.ITUDatabaseClient
+	ctx          context.Context
+	cancel       context.CancelFunc
+	mu           sync.Mutex
+	lamportClock int64
 }
 
 func createUser(name string) (*userInfo, error) {
@@ -65,8 +68,10 @@ func (c *userInfo) receiveMessages(stream proto.ITUDatabase_JoinChatClient) {
 			return
 		}
 
-		fmt.Printf("[Lamport: %d] %s \n", msg.LamportTimestamp, msg.Content)
-		log.Printf("[Client: %s] Recieved: %s (Lamport: %d)", c.name, msg.Content, msg.LamportTimestamp)
+		newTime := c.updateClock(msg.LamportTimestamp)
+
+		fmt.Printf("[Lamport: %d] %s \n", newTime, msg.Content)
+		log.Printf("[Client: %s] Recieved: %s (Lamport: %d)", c.name, msg.Content, newTime)
 	}
 }
 
@@ -79,15 +84,18 @@ func (c *userInfo) sendMessage(msg string) error {
 		fmt.Errorf("Message is empty")
 	}
 
-	resp, err := c.client.PublishMessage(c.ctx, &proto.ChatMessage{
+	lamportTime := c.incrementClock()
+
+	_, err := c.client.PublishMessage(c.ctx, &proto.ChatMessage{
 		ParticipantName: c.name,
 		Content:         msg,
+		Lamport:         lamportTime,
 	})
 	if err != nil {
 		return err
 	}
 
-	log.Printf("[Client %s] Published message: %s", c.name, resp.LamportTimestamp)
+	log.Printf("[Client %s] Published message: %s", c.name, lamportTime)
 	return nil
 }
 
@@ -99,6 +107,23 @@ func (c *userInfo) leave() {
 
 	c.cancel()
 	c.conn.Close()
+}
+
+func (c *userInfo) incrementClock() int64 {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.lamportClock++
+	return c.lamportClock
+}
+
+func (c *userInfo) updateClock(received int64) int64 {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if received > c.lamportClock {
+		c.lamportClock = received
+	}
+	c.lamportClock++
+	return c.lamportClock
 }
 
 func main() {

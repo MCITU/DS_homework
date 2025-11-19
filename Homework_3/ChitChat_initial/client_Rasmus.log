@@ -1,0 +1,11 @@
+2025/11/19 17:55:23 [Client Rasmus] Connecting to server localhost:5000
+2025/11/19 17:55:23 [Client: Rasmus] Recieved: Participant Rasmus joined Chit Chat at Lamport time 1 (Lamport: 2)
+2025/11/19 17:55:25 [Client: Rasmus] Recieved: Participant Ratn joined Chit Chat at Lamport time 2 (Lamport: 3)
+2025/11/19 17:55:25 [Client: Rasmus] Recieved: Participant RallToTheG joined Chit Chat at Lamport time 3 (Lamport: 4)
+2025/11/19 17:55:47 [Client Rasmus] Published message: %!s(int64=5)
+2025/11/19 17:55:47 [Client: Rasmus] Recieved: Rasmus: Welcome back TA!! (Lamport: 7)
+2025/11/19 17:55:59 [Client: Rasmus] Recieved: Ratn: This is a test (Lamport: 10)
+2025/11/19 17:56:34 [Client: Rasmus] Recieved: RallToTheG: Lebron the goat (Lamport: 13)
+2025/11/19 17:56:45 [Client Rasmus] Leaving
+2025/11/19 17:56:45 [Client: Rasmus] Recieved: Participant Rasmus left Chit Chat at Lamport time 13 (Lamport: 14)
+2025/11/19 17:56:45 [Client Rasmus] Disconnected

@@ -1,5 +1,5 @@
 syntax = "proto3";
-option go_package = "ITUDataBase/grpc/proto";
+option go_package = "./;grpc";
 
  service ITUDatabase {
    // Join the chat and receive broadcast messages via server-side streaming
@@ -21,6 +21,7 @@ message joinRequest {
 message chatMessage {
   string participant_name = 1;
   string content = 2;
+  int64 lamport = 3;
 }
 
 // Response after publishing a message

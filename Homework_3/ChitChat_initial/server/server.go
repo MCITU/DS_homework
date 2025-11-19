@@ -89,7 +89,14 @@ func (s *server) PublishMessage(ctx context.Context, msg *pb.ChatMessage) (*pb.P
 		return &pb.PublishResponse{Success: false}, fmt.Errorf("message exceeds 128 characters")
 	}
 
-	lamportTime := s.incrementClock()
+	s.mu.Lock()
+	if msg.Lamport > s.lamportClock {
+		s.lamportClock = msg.Lamport
+	}
+	s.lamportClock++
+	lamportTime := s.lamportClock
+
+	s.mu.Unlock()
 	log.Printf("[Server] Message from %s (Lamport: %d)", msg.ParticipantName, lamportTime)
 
 	broadcastMsg := &pb.BroadcastMessage{
