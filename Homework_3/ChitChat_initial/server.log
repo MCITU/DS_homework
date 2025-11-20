@@ -20,3 +20,32 @@
 2025/11/19 17:56:56 [Server] Broadcasting: RallToTheG: Bye!! (Lamport: 17)
 2025/11/19 17:56:59 [Server] Client RallToTheG left (Lamport: 18)
 2025/11/19 17:56:59 [Server] Broadcasting: Participant RallToTheG left Chit Chat at Lamport time 18 (Lamport: 18)
+2025/11/20 10:49:35 [Server] Starting up
+2025/11/20 10:49:35 [Server] Listening on port 5000
+2025/11/20 10:50:50 [Server] Client Alice joined
+2025/11/20 10:50:50 [Server] Broadcasting: Participant Alice joined Chit Chat at Lamport time 1 (Lamport: 1)
+2025/11/20 10:51:05 [Server] Client Bob joined
+2025/11/20 10:51:05 [Server] Broadcasting: Participant Bob joined Chit Chat at Lamport time 2 (Lamport: 2)
+2025/11/20 10:51:15 [Server] Client Charlie joined
+2025/11/20 10:51:15 [Server] Broadcasting: Participant Charlie joined Chit Chat at Lamport time 3 (Lamport: 3)
+2025/11/20 10:51:19 [Server] Message from Charlie (Lamport: 6)
+2025/11/20 10:51:19 [Server] Broadcasting: Charlie: Hello (Lamport: 6)
+2025/11/20 10:51:27 [Server] Message from Alice (Lamport: 9)
+2025/11/20 10:51:27 [Server] Broadcasting: Alice: sdfFuck mig (Lamport: 9)
+2025/11/20 10:51:29 [Server] Message from Alice (Lamport: 12)
+2025/11/20 10:51:29 [Server] Broadcasting: Alice:  (Lamport: 12)
+2025/11/20 10:51:29 [Server] Message from Alice (Lamport: 15)
+2025/11/20 10:51:29 [Server] Broadcasting: Alice:  (Lamport: 15)
+2025/11/20 10:51:31 [Server] Message from Alice (Lamport: 18)
+2025/11/20 10:51:31 [Server] Broadcasting: Alice: mig (Lamport: 18)
+2025/11/20 10:51:33 [Server] Message from Bob (Lamport: 21)
+2025/11/20 10:51:33 [Server] Broadcasting: Bob: hey (Lamport: 21)
+2025/11/20 10:51:36 [Server] Message from Charlie (Lamport: 24)
+2025/11/20 10:51:36 [Server] Broadcasting: Charlie: lol (Lamport: 24)
+2025/11/20 10:51:43 [Server] Client Charlie left (Lamport: 25)
+2025/11/20 10:51:43 [Server] Broadcasting: Participant Charlie left Chit Chat at Lamport time 25 (Lamport: 25)
+2025/11/20 10:51:47 [Server] Client Bob left (Lamport: 26)
+2025/11/20 10:51:47 [Server] Broadcasting: Participant Bob left Chit Chat at Lamport time 26 (Lamport: 26)
+2025/11/20 10:51:50 [Server] Client Alice left (Lamport: 27)
+2025/11/20 10:51:50 [Server] Broadcasting: Participant Alice left Chit Chat at Lamport time 27 (Lamport: 27)
+2025/11/20 10:51:57 [Server] Shutting down

@@ -1,0 +1,66 @@
+syntax = "proto3";
+option go_package = "./;grpc";
+
+service ITUAuctionServer {
+  // Join the bidding and receive broadcast messages via server-side streaming
+  rpc joinBidding(joinRequest) returns (stream broadcastMessage);
+
+  // Publish a bid
+  rpc publishBid(bidMessage) returns (publishResponse);
+
+  // Leave the bidding
+  rpc leaveBidding(leaveRequest) returns (leaveResponse);
+
+  //Get highest bid
+  rpc getHighestBid(getHighestBidRequest) returns (getHighestBidResponse);
+}
+
+// Request message when a client joins
+message joinRequest {
+  string participant_name = 1;
+}
+
+// Message for publishing a bid
+message bidMessage {
+  string participant_name = 1;
+  int64 amount = 2;
+}
+
+// Response after publishing a bid
+message publishResponse {
+  bool success = 1;
+  string reason = 3;
+}
+
+// Request message when a client leaves
+message leaveRequest {
+  string participant_name = 1;
+}
+
+// Response after leaving
+message leaveResponse {
+  bool success = 1;
+}
+
+// Broadcast message sent to all clients
+message broadcastMessage {
+  int64 amount = 1;
+  messageType type = 3;
+}
+
+//Request to get highest bid
+message getHighestBidRequest {}
+
+//Getting highest bid
+message getHighestBidResponse {
+  int64 amount = 1;
+}
+
+// Type of broadcast message
+enum messageType {
+  BID = 0;
+  JOIN = 1;
+  LEAVE = 2;
+}
+
+
