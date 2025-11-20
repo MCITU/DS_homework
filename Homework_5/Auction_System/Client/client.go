@@ -119,6 +119,7 @@ func (c *userInfo) receiveBid(stream proto.ITUAuctionServer_JoinBiddingClient) {
 
 			log.Printf("[Client %s] Rejoined bidding after reconnect", c.name)
 			stream = newStream
+			continue // Skip to next iteration to receive from new stream
 		}
 
 		fmt.Printf("New bid: %d\n", msg.Amount)
@@ -132,25 +133,21 @@ func (c *userInfo) sendBid(amount int64) error {
 		Amount:          amount,
 	}
 
-	_, err := c.client.PublishBid(c.ctx, bid)
+	resp, err := c.client.PublishBid(c.ctx, bid)
 	if err != nil {
+		log.Printf("[Client %s] Failed to publish bid: %v", c.name, err)
 		return err
 	}
 
-	log.Printf("[Client %s] Published bid: %d", c.name, amount)
-
-	//Trying to reconnect
-	if recErr := c.reconnect(); recErr != nil {
-		return fmt.Errorf("error reconnecting: %v", recErr)
+	// Show server response to user
+	if resp.Success {
+		fmt.Printf("✓ %s\n", resp.Reason)
+		log.Printf("[Client %s] Bid accepted: %d", c.name, amount)
+	} else {
+		fmt.Printf("✗ %s\n", resp.Reason)
+		log.Printf("[Client %s] Bid rejected: %s", c.name, resp.Reason)
 	}
-
-	//Try to publish bid after reconnect
-	_, err = c.client.PublishBid(c.ctx, bid)
-	if err != nil {
-		return fmt.Errorf("error publishing bid after reconnect: %v", err)
-	}
-
-	log.Printf("[Client %s] Send a bid: %d", c.name, amount)
+	
 	return nil
 }
 
@@ -159,19 +156,8 @@ func (c *userInfo) getHighestBid() error {
 
 	resp, err := c.client.GetHighestBid(c.ctx, req)
 	if err != nil {
-		log.Printf("[Client %s] Get Highest Bid failed: %v, trying to reconnect", c.name, err)
-		return nil
-	}
-
-	//Trying to reconnect
-	if recErr := c.reconnect(); recErr != nil {
-		log.Printf("[Client %s] Error reconnecting: %v", c.name, recErr)
-	}
-
-	//ry to get the highest bid after reconnect
-	resp, err = c.client.GetHighestBid(c.ctx, req)
-	if err != nil {
-		return fmt.Errorf("GetHighestBid failed after reconnect: %v", err)
+		log.Printf("[Client %s] Get Highest Bid failed: %v", c.name, err)
+		return err
 	}
 
 	fmt.Printf("Current highest bid: %d\n", resp.Amount)
@@ -213,9 +199,11 @@ func main() {
 		input := strings.TrimSpace(scanner.Text())
 		if input == "/leave" {
 			c.leave()
+			break
 		}
 		if input == "bid" {
 			c.getHighestBid()
+			continue
 		}
 
 		amount, err := strconv.ParseInt(input, 10, 64)
@@ -225,7 +213,7 @@ func main() {
 		}
 
 		if err := c.sendBid(amount); err != nil {
-			fmt.Printf("Error seding bid: %v\n", err)
+			fmt.Printf("Error sending bid: %v\n", err)
 		}
 	}
 

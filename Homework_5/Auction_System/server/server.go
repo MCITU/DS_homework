@@ -3,6 +3,7 @@ package main
 import (
 	pb "ITUserver/grpc"
 	"bufio"
+	"context"
 	"fmt"
 	"log"
 	"net"
@@ -11,19 +12,23 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"google.golang.org/grpc"
 )
 
 const AuctionDuration = 100 * time.Second //1 min 40 sec
 
 type server struct {
-	pb.ITUAuctionServer
-	port          string           //port vi lytter på
-	peerAddress   string           //addressen på den anden server (til replikering)
-	bids          map[string]int64 // alle bud: Bidder -> Bids
-	highestBid    int64            //Det aller højeste
-	highestBidder string           //Hvem der vinder
-	startTime     time.Time        //Hvornår startede auktionen
-	mu            sync.Mutex       // Lock så vi kan beskytte bids
+	pb.UnimplementedITUAuctionServerServer
+	port          string                      //port vi lytter på
+	peerAddress   string                      //addressen på den anden server (til replikering)
+	bids          map[string]int64            // alle bud: Bidder -> Bids
+	highestBid    int64                       //Det aller højeste
+	highestBidder string                      //Hvem der vinder
+	startTime     time.Time                   //Hvornår startede auktionen
+	mu            sync.Mutex                  // Lock så vi kan beskytte bids
+	clients       map[string]chan *pb.BroadcastMessage // Active client streams
+	clientsMu     sync.Mutex                  // Lock for clients map
 }
 
 // starter serveren
@@ -33,6 +38,7 @@ func newServer(port, peerAddress string) *server {
 		peerAddress: peerAddress,
 		bids:        make(map[string]int64),
 		startTime:   time.Now(),
+		clients:     make(map[string]chan *pb.BroadcastMessage),
 	}
 }
 
@@ -63,6 +69,12 @@ func (s *server) handleBid(bidder string, amount int64) string {
 	s.bids[bidder] = amount
 	s.highestBid = amount
 	s.highestBidder = bidder
+
+	// Broadcast to all connected clients
+	go s.broadcast(&pb.BroadcastMessage{
+		Amount: amount,
+		Type:   pb.MessageType_BID,
+	})
 
 	// ref til backup
 	go s.replicate(bidder, amount) //Sender til backup
@@ -155,6 +167,86 @@ func (s *server) handleConn(conn net.Conn) {
 	fmt.Fprintln(conn, response) //Send svar tilbage
 }
 
+// gRPC method implementations
+func (s *server) JoinBidding(req *pb.JoinRequest, stream grpc.ServerStreamingServer[pb.BroadcastMessage]) error {
+	log.Printf("Client %s joined bidding", req.ParticipantName)
+
+	// Create channel for this client
+	clientChan := make(chan *pb.BroadcastMessage, 10)
+	s.clientsMu.Lock()
+	s.clients[req.ParticipantName] = clientChan
+	s.clientsMu.Unlock()
+
+	// Send join broadcast
+	go s.broadcast(&pb.BroadcastMessage{
+		Amount: 0,
+		Type:   pb.MessageType_JOIN,
+	})
+
+	// Stream messages to client
+	for msg := range clientChan {
+		if err := stream.Send(msg); err != nil {
+			log.Printf("Error sending to client %s: %v", req.ParticipantName, err)
+			break
+		}
+	}
+
+	// Cleanup
+	s.clientsMu.Lock()
+	delete(s.clients, req.ParticipantName)
+	s.clientsMu.Unlock()
+	return nil
+}
+
+func (s *server) PublishBid(ctx context.Context, bid *pb.BidMessage) (*pb.PublishResponse, error) {
+	result := s.handleBid(bid.ParticipantName, bid.Amount)
+	success := strings.Contains(result, "Success")
+	return &pb.PublishResponse{
+		Success: success,
+		Reason:  result,
+	}, nil
+}
+
+func (s *server) LeaveBidding(ctx context.Context, req *pb.LeaveRequest) (*pb.LeaveResponse, error) {
+	log.Printf("Client %s left bidding", req.ParticipantName)
+
+	s.clientsMu.Lock()
+	if ch, exists := s.clients[req.ParticipantName]; exists {
+		close(ch)
+		delete(s.clients, req.ParticipantName)
+	}
+	s.clientsMu.Unlock()
+
+	go s.broadcast(&pb.BroadcastMessage{
+		Amount: 0,
+		Type:   pb.MessageType_LEAVE,
+	})
+
+	return &pb.LeaveResponse{Success: true}, nil
+}
+
+func (s *server) GetHighestBid(ctx context.Context, req *pb.GetHighestBidRequest) (*pb.GetHighestBidResponse, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return &pb.GetHighestBidResponse{
+		Amount: s.highestBid,
+	}, nil
+}
+
+// Broadcast message to all connected clients
+func (s *server) broadcast(msg *pb.BroadcastMessage) {
+	s.clientsMu.Lock()
+	defer s.clientsMu.Unlock()
+
+	for name, ch := range s.clients {
+		select {
+		case ch <- msg:
+		default:
+			log.Printf("Client %s channel full, skipping message", name)
+		}
+	}
+}
+
 func (s *server) Start() {
 	ln, err := net.Listen("tcp", ":"+s.port)
 	if err != nil {
@@ -162,8 +254,8 @@ func (s *server) Start() {
 	}
 	defer ln.Close()
 
-	log.Printf("Server on port %s (peer: %s", s.port, s.peerAddress)
-	log.Printf("Auction started, ending at: %s", s.startTime.Add(AuctionDuration).Format("13:33:05"))
+	log.Printf("Server on port %s (peer: %s)", s.port, s.peerAddress)
+	log.Printf("Auction started, ending at: %s", s.startTime.Add(AuctionDuration).Format("15:04:05"))
 
 	// Auto-restart auctionen efter slut
 	go func() {
@@ -173,12 +265,13 @@ func (s *server) Start() {
 		}
 	}()
 
-	for {
-		conn, err := ln.Accept()
-		if err != nil {
-			continue
-		}
-		go s.handleConn(conn)
+	// Start gRPC server
+	grpcServer := grpc.NewServer()
+	pb.RegisterITUAuctionServerServer(grpcServer, s)
+
+	log.Printf("gRPC server listening on port %s", s.port)
+	if err := grpcServer.Serve(ln); err != nil {
+		log.Fatalf("Failed to serve: %v", err)
 	}
 }
 
