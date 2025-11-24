@@ -1,0 +1,17 @@
+2025/11/24 18:11:32 Connected to localhost:5000
+2025/11/24 18:11:32 [Client Alice] Connecting to server localhost:5000
+2025/11/24 18:11:32 [Client: Alice] Recieved: 0
+2025/11/24 18:11:37 [Client: Alice] Recieved: 0
+2025/11/24 18:11:40 [Client: Alice] Recieved: 200
+2025/11/24 18:11:40 [Client Alice] Bid accepted: 200
+2025/11/24 18:11:42 [Client: Alice] Recieved: 300
+2025/11/24 18:11:52 Auction ended, next auction starts in 5 seconds
+2025/11/24 18:12:03 [Client Alice] Bid accepted: 100
+2025/11/24 18:12:03 [Client: Alice] Recieved: 100
+2025/11/24 18:12:06 [Client: Alice] Recieved: 250
+2025/11/24 18:12:11 [Client Alice] Bid accepted: 500
+2025/11/24 18:12:11 [Client: Alice] Recieved: 500
+2025/11/24 18:12:15 [Client: Alice] Recieved: 0
+2025/11/24 18:12:27 Auction ended, next auction starts in 5 seconds
+2025/11/24 18:12:44 [Client Alice] Leaving
+2025/11/24 18:12:44 [Client Alice] Error receiving bid: EOF. Trying to reconnect...

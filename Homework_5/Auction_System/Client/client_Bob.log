@@ -1,0 +1,13 @@
+2025/11/24 18:11:37 Connected to localhost:5000
+2025/11/24 18:11:37 [Client Bob] Connecting to server localhost:5000
+2025/11/24 18:11:37 [Client: Bob] Recieved: 0
+2025/11/24 18:11:40 [Client: Bob] Recieved: 200
+2025/11/24 18:11:42 [Client: Bob] Recieved: 300
+2025/11/24 18:11:42 [Client Bob] Bid accepted: 300
+2025/11/24 18:11:52 Auction ended, next auction starts in 5 seconds
+2025/11/24 18:12:03 [Client: Bob] Recieved: 100
+2025/11/24 18:12:06 [Client: Bob] Recieved: 250
+2025/11/24 18:12:06 [Client Bob] Bid accepted: 250
+2025/11/24 18:12:11 [Client: Bob] Recieved: 500
+2025/11/24 18:12:15 [Client Bob] Leaving
+2025/11/24 18:12:15 [Client Bob] context canceled

@@ -1,0 +1,10 @@
+2025/11/24 18:10:51 Server on port 5001 (peer: localhost:5000)
+2025/11/24 18:10:51 Auction started, ending at: 18:11:21
+2025/11/24 18:10:51 gRPC server listening on port 5001
+2025/11/24 18:11:26 Auction reset - New Auction starting now & ending at: 18:11:56
+2025/11/24 18:12:01 
+ Winner was Bob, with the bid: 300
+2025/11/24 18:12:01 Auction reset - New Auction starting now & ending at: 18:12:31
+2025/11/24 18:12:36 
+ Winner was Alice, with the bid: 500
+2025/11/24 18:12:36 Auction reset - New Auction starting now & ending at: 18:13:06
