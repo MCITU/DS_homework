@@ -2,33 +2,32 @@ package main
 
 import (
 	pb "ITUserver/grpc"
-	"bufio"
 	"context"
 	"fmt"
 	"log"
 	"net"
 	"os"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 const AuctionDuration = 100 * time.Second //1 min 40 sec
 
 type server struct {
 	pb.UnimplementedITUAuctionServerServer
-	port          string                      //port vi lytter på
-	peerAddress   string                      //addressen på den anden server (til replikering)
-	bids          map[string]int64            // alle bud: Bidder -> Bids
-	highestBid    int64                       //Det aller højeste
-	highestBidder string                      //Hvem der vinder
-	startTime     time.Time                   //Hvornår startede auktionen
-	mu            sync.Mutex                  // Lock så vi kan beskytte bids
+	port          string                               //port vi lytter på
+	peerAddress   string                               //addressen på den anden server (til replikering)
+	bids          map[string]int64                     // alle bud: Bidder -> Bids
+	highestBid    int64                                //Det aller højeste
+	highestBidder string                               //Hvem der vinder
+	startTime     time.Time                            //Hvornår startede auktionen
+	mu            sync.Mutex                           // Lock så vi kan beskytte bids
 	clients       map[string]chan *pb.BroadcastMessage // Active client streams
-	clientsMu     sync.Mutex                  // Lock for clients map
+	clientsMu     sync.Mutex                           // Lock for clients map
 }
 
 // starter serveren
@@ -80,19 +79,21 @@ func (s *server) handleBid(bidder string, amount int64) string {
 	go s.replicate(bidder, amount) //Sender til backup
 
 	return "Success: Bid Accepted"
+
 }
 
 func (s *server) endAuction() string {
-	s.mu.Lock()
-	defer s.mu.Unlock()
 	if s.isAuctionEnded() {
 		if s.highestBidder == "" {
 			return "\n No bids placed" //Ingen bød Auctionen er slut.
 		} else {
+			log.Printf("\n Winner was %s, with the bid: %d", s.highestBidder, s.highestBid)
 			fmt.Printf("\n Winner was %s, with the bid: %d", s.highestBidder, s.highestBid)
+
 		}
 	}
 	if s.highestBidder == "" {
+		log.Printf("\n Auction is ongoing: No bids placed")
 		return "Auction is ongoing: No bids placed"
 	}
 	return (fmt.Sprintf("Auction is ongoing: %s is leading with %d", s.highestBidder, s.highestBid))
@@ -100,25 +101,44 @@ func (s *server) endAuction() string {
 func (s *server) resetAuction() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-
+	s.endAuction()
 	s.bids = make(map[string]int64)
 	s.highestBidder = ""
 	s.highestBid = 0
 	s.startTime = time.Now()
-	log.Printf("Auction reset - New Auction starting in & ending at: %s", s.startTime.Add(AuctionDuration).Format("13:48:05"))
+	fmt.Printf("Auction reset - New Auction starting now & ending at: %s", s.startTime.Add(AuctionDuration).Format("15:04:05"))
+	log.Printf("Auction reset - New Auction starting now & ending at: %s", s.startTime.Add(AuctionDuration).Format("15:04:05"))
 }
 
 func (s *server) replicate(bidder string, amount int64) {
 	if s.peerAddress == "" {
-		return // der er ikke configureret en backup server/node
+		return
 	}
-	conn, err := net.DialTimeout("tcp", s.peerAddress, 2*time.Second)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	conn, err := grpc.DialContext(
+		ctx,
+		s.peerAddress,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+	)
 	if err != nil {
-		return // der kunne ikke connectes til backup server/node
+		log.Printf("Replication failed (dial): %v", err)
+		return
 	}
 	defer conn.Close()
-	fmt.Fprintf(conn, "REPLICATE %s %d\n", bidder, amount)
-	return
+
+	client := pb.NewITUAuctionServerClient(conn)
+
+	_, err = client.Replicate(ctx, &pb.ReplicateRequest{
+		Bidder: bidder,
+		Amount: amount,
+	})
+
+	if err != nil {
+		log.Printf("Replication failed (rpc): %v", err)
+	}
 }
 
 func (s *server) handleReplicate(bidder string, amount int64) {
@@ -129,42 +149,6 @@ func (s *server) handleReplicate(bidder string, amount int64) {
 		s.bids[bidder] = amount
 		s.highestBidder = bidder
 	}
-}
-
-func (s *server) handleConn(conn net.Conn) {
-	defer conn.Close() //luk forbindelse når færdig
-	scanner := bufio.NewScanner(conn)
-
-	if !scanner.Scan() {
-		return //ingen data
-	}
-	parts := strings.Fields(scanner.Text()) //Splitter linjen e.g "BID <navn> <bud>" -> ["BID","<navn>", "<bud>"]
-	if len(parts) == 0 {
-		return
-	}
-
-	cmd := parts[0]
-	var response string
-
-	switch cmd {
-	case "BID":
-		if len(parts) < 2 {
-			response = "Exception: BID requires bidder and a bid"
-		} else {
-			amount, _ := strconv.ParseInt(parts[2], 10, 64)
-			response = s.handleBid(parts[1], amount)
-		}
-	case "RESULT":
-		response = s.endAuction()
-
-	case "REPLICATE":
-		if len(parts) >= 3 {
-			amount, _ := strconv.ParseInt(parts[2], 10, 64)
-			s.handleReplicate(parts[1], amount)
-			response = "Ok!"
-		}
-	}
-	fmt.Fprintln(conn, response) //Send svar tilbage
 }
 
 // gRPC method implementations
@@ -233,6 +217,12 @@ func (s *server) GetHighestBid(ctx context.Context, req *pb.GetHighestBidRequest
 	}, nil
 }
 
+// GRPC Metode til Replicate
+func (s *server) Replicate(ctx context.Context, req *pb.ReplicateRequest) (*pb.ReplicateResponse, error) {
+	s.handleReplicate(req.Bidder, req.Amount)
+	return &pb.ReplicateResponse{Ok: true}, nil
+}
+
 // Broadcast message to all connected clients
 func (s *server) broadcast(msg *pb.BroadcastMessage) {
 	s.clientsMu.Lock()
@@ -245,6 +235,12 @@ func (s *server) broadcast(msg *pb.BroadcastMessage) {
 			log.Printf("Client %s channel full, skipping message", name)
 		}
 	}
+}
+
+func (s *server) GetEndAuction(ctx context.Context, req *pb.GetIsEndedRequest) (*pb.GetIsEndedResponse, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return &pb.GetIsEndedResponse{Amount: s.isAuctionEnded()}, nil
 }
 
 func (s *server) Start() {

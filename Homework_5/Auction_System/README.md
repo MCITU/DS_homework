@@ -13,8 +13,6 @@ A fault-tolerant distributed auction system using gRPC with state replication th
 ## Prerequisites
 
 - **Go 1.21+** installed
-- **Protocol Buffers compiler** (optional, only if regenerating `.pb.go` files)
-- **gRPC Go plugins** (optional, only if regenerating `.pb.go` files)
 
 ## Project Structure
 

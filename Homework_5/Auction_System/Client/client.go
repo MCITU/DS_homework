@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -28,7 +29,10 @@ func dialWithFallback() (*grpc.ClientConn, error) {
 	addrs := []string{"localhost:5000", "localhost:5001"}
 
 	for _, addr := range addrs {
-		conn, err := grpc.Dial(addr, grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithBlock())
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancel()
+
+		conn, err := grpc.DialContext(ctx, addr, grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithBlock())
 
 		if err == nil {
 			log.Printf("Connected to %s", addr)
@@ -135,19 +139,27 @@ func (c *userInfo) sendBid(amount int64) error {
 
 	resp, err := c.client.PublishBid(c.ctx, bid)
 	if err != nil {
-		log.Printf("[Client %s] Failed to publish bid: %v", c.name, err)
-		return err
+		log.Printf("[Client %s]Published bid: %d", c.name, amount)
+
+		if recErr := c.reconnect(); recErr != nil {
+			return fmt.Errorf("Error reconnecting: %v", recErr)
+		}
+
+		resp, err = c.client.PublishBid(c.ctx, bid)
+		if err != nil {
+			return fmt.Errorf("Error publishing bid: %v", err)
+		}
 	}
 
 	// Show server response to user
 	if resp.Success {
-		fmt.Printf("✓ %s\n", resp.Reason)
+		fmt.Printf("%s\n", resp.Reason)
 		log.Printf("[Client %s] Bid accepted: %d", c.name, amount)
 	} else {
-		fmt.Printf("✗ %s\n", resp.Reason)
+		fmt.Printf("%s\n", resp.Reason)
 		log.Printf("[Client %s] Bid rejected: %s", c.name, resp.Reason)
 	}
-	
+
 	return nil
 }
 
@@ -164,6 +176,26 @@ func (c *userInfo) getHighestBid() error {
 	return nil
 }
 
+func (c *userInfo) getEndAuction() error {
+	req1 := &proto.GetIsEndedRequest{}
+
+	resp, err := c.client.GetEndAuction(c.ctx, req1)
+	if err != nil {
+		if c.ctx.Err() != nil {
+			return err
+		}
+		log.Printf("Get end time failed: %v", err)
+		return err
+	}
+	// amount = bool whether it has ended or not
+	// amount is not the person with the highest bid nor the largest amount
+	if resp.Amount {
+		fmt.Print("Auction ended, next auction starts in 5 seconds")
+		log.Printf("Auction ended, next auction starts in 5 seconds")
+	}
+	return nil
+}
+
 func (c *userInfo) leave() {
 	log.Printf("[Client %s] Leaving", c.name)
 	_, err := c.client.LeaveBidding(c.ctx, &proto.LeaveRequest{
@@ -172,7 +204,7 @@ func (c *userInfo) leave() {
 	if err != nil {
 		log.Printf("[Client %s] Leave failed: %v", c.name, err)
 	}
-
+	fmt.Println("Bye!")
 	c.cancel()
 	c.conn.Close()
 }
@@ -194,10 +226,28 @@ func main() {
 	fmt.Println()
 	fmt.Println("Type an amount to bid")
 	fmt.Println("Type 'bid' to get the current highest bid")
+	done := make(chan struct{})
+	go func() {
+		ticker := time.NewTicker(4990 * time.Millisecond)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ticker.C:
+
+				c.getEndAuction()
+			case <-done:
+				return
+			case <-c.ctx.Done():
+				return
+			}
+		}
+	}()
 	scanner := bufio.NewScanner(os.Stdin)
 	for scanner.Scan() {
 		input := strings.TrimSpace(scanner.Text())
 		if input == "/leave" {
+			close(done)
 			c.leave()
 			break
 		}
@@ -216,7 +266,6 @@ func main() {
 			fmt.Printf("Error sending bid: %v\n", err)
 		}
 	}
-
+	close(done)
 	c.leave()
-	fmt.Println("Bye!")
 }

@@ -13,7 +13,24 @@ service ITUAuctionServer {
 
   //Get highest bid
   rpc getHighestBid(getHighestBidRequest) returns (getHighestBidResponse);
+
+  // is auction ended
+  rpc  getEndAuction(getIsEndedRequest) returns (getIsEndedResponse);
+
+  // Replication
+  rpc Replicate(ReplicateRequest) returns (ReplicateResponse);
+
 }
+//Replication:
+message ReplicateRequest {
+  string bidder = 1;
+  int64 amount = 2;
+}
+
+message ReplicateResponse {
+  bool ok = 1;
+}
+
 
 // Request message when a client joins
 message joinRequest {
@@ -61,6 +78,14 @@ enum messageType {
   BID = 0;
   JOIN = 1;
   LEAVE = 2;
+}
+
+//Request to get if ended bid
+message getIsEndedRequest {}
+
+//Getting if ended bid
+message getIsEndedResponse {
+  bool amount = 1;
 }
 
 
